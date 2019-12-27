@@ -27,8 +27,8 @@ class BinarySystem:
     """
     _PURE_LIGHT_CHEMICAL = 1
     _PURE_HEAVY_CHEMICAL = 0
-    steps_required = None
-    feed_step = None
+    steps_required = 0
+    feed_step = 0
 
     def __init__(self, light_chemical, heavy_chemical):
         self.light_chemical = light_chemical
@@ -40,19 +40,35 @@ class BinarySystem:
         self.x, self.y = self.get_vapor_liquid_equilibrium_data()
 
     def set_light_chemical(self, new_chemical):
+        """Changes the light chemical in the system and then updates
+
+        Args:
+            new_chemical:   The replacement for light_chemical
+        """
         self.light_chemical = new_chemical
         self.update_binary_system()
 
     def set_heavy_chemical(self, new_chemical):
+        """Changes the heavy chemical in the system and then updates
+
+        Args:
+            new_chemical:   The replacement for heavy_chemical
+        """
         self.heavy_chemical = new_chemical
         self.update_binary_system()
 
     def set_new_chemicals(self, new_chemicals):
+        """Changes both chemicals in the system and then updates
+
+        Args:
+            new_chemicals:  A list of two chemicals to define the system by
+        """
         self.light_chemical = new_chemicals[0]
         self.heavy_chemical = new_chemicals[1]
         self.update_binary_system()
 
     def get_all_potential_chemicals(self):
+        """Recovers all the chemicals read from the data file"""
         return self.data_source.get_keys()
 
     def get_required_steps(self):
@@ -361,9 +377,9 @@ class BinarySystem:
         """
         xB, xF, xD, _ = towerSpecs.get_tower_specifications()
 
-        self.steps_required = 0
-        self.feed_step = 0
+        self.feed_step = 1
 
+        found_feed_step = False
         currX = xD
         currY = xD
         steps = 0
@@ -372,18 +388,21 @@ class BinarySystem:
             steps += 1
             xEq = np.interp(currY, self.y, self.x)
 
+            # Checks if we're going to the effective equilibrium instead (every step except final)
             if (xB < xEq) and (effY is not None):
                 xEq = np.interp(currY, effY, self.x)
 
+            # Checks if we're still inside stepping bounds (and therefore going to the operating line)
             if xB < xEq:
                 yOP, state = self.get_yOperating(towerSpecs, xEq)
+                if not found_feed_step:
+                    found_feed_step = self.update_feed_step(state, steps)
 
-                if state == "stripping" and self.feed_step == 0:
-                    self.feed_step = steps
-
+            # Outside the stepping bounds - therefore the diagonal suffices
             else:
                 yOP = xEq
 
+            # Plot the step if a diagram is available
             if plot_element is not None:
                 plot_element.plot([currX, xEq, xEq], [currY, currY, yOP], '-g')
 
@@ -393,10 +412,27 @@ class BinarySystem:
         if plot_element is not None:
             plot_element.plot([0], [0], '-g', label='McCabe Thiele')
 
-        # No such thing as a 0th feed step - but using "1" can provide a false reading of "2"
-        if self.feed_step == 0:
-            self.feed_step = 1
         self.steps_required = steps
+
+    def update_feed_step(self, state, steps):
+        """Determines if updating the feed step is valid, and if applicable, does so
+
+        Args:
+            state:  Position of the point
+            steps:  The current step
+
+        Returns:
+            found:  Whether the feed_step was set this call
+        """
+        found = False
+        if state == "stripping":
+            if steps == 0:
+                self.feed_step = 1
+            else:
+                self.feed_step = steps
+            found = True
+        return found
+
 
     @staticmethod
     def plot_diagonal(plot_element):
