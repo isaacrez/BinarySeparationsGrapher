@@ -68,6 +68,10 @@ class BinarySystem:
         self.heavy_chemical = new_chemicals[1]
         self.update_binary_system()
 
+    def get_current_chemicals(self):
+        """Returns a list of the current chemicals"""
+        return [self.light_chemical, self.heavy_chemical]
+
     def get_all_potential_chemicals(self):
         """Recovers all the chemicals read from the data file"""
         return self.data_source.get_keys()

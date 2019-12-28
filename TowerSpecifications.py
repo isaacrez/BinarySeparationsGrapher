@@ -16,18 +16,34 @@ class TowerSpecs:
     """
     def __init__(self, R, xB, xF, xD, murphree=1):
         self.R = R
-        self.xB = self.confirm_valid_bounding(xB)
-        self.xF = self.confirm_valid_bounding(xF, xB)
-        self.xD = self.confirm_valid_bounding(xD, xF)
-        self.murphree = self.confirm_valid_bounding(murphree)
+        self.xB = self.set_initial_values(0, xB)
+        self.xF = self.set_initial_values(self.xB + 0.001, xF, self.xB + 0.001)
+        self.xD = self.set_initial_values(self.xF + 0.001, xD, self.xF + 0.001)
+        self.murphree = self.set_initial_values(1, murphree)
+
+    def set_initial_values(self, default, value, lower_limit=0):
+        """Ensures the initial values are properly bounded from lower_limit < value <= 1; if not, sets them to default
+
+        Args:
+            default:            Value will default to this if given improper bounds
+            value:              Value to test for validity
+            lower_limit:        The lower acceptable limit for this value
+
+        Returns:
+            value / default:    The value to be used by the system
+        """
+        if self.confirm_valid_bounding(value, lower_limit):
+            return value
+        else:
+            return default
 
     @staticmethod
-    def confirm_valid_bounding(value, lowerLimit=0):
+    def confirm_valid_bounding(value, lower_limit=0):
         """Verifies the value is properly bounded, and returns a ValueError if not
 
         Args:
             value:      Value being checked
-            lowerLimit: The lower limit permitted for value
+            lower_limit: The lower limit permitted for value
 
         Returns:
             value:      If valid, the original value is returned
@@ -36,12 +52,12 @@ class TowerSpecs:
             ValueError: If improperly bounded
         """
 
-        if value < lowerLimit:
-            raise ValueError
-        if 0 < value <= 1:
-            return value
+        if value < lower_limit:
+            return False
+        if value <= 1:
+            return True
         else:
-            raise ValueError
+            return False
 
     def get_operating_line_parameters(self):
         """Creates the operating line for both the stripping and rectifying sections
@@ -74,6 +90,21 @@ class TowerSpecs:
         """
         return self.xB, self.xF, self.xD, self.murphree
 
+    def get_reflux_ratio(self):
+        return self.R
+
+    def get_xB(self):
+        return self.xB
+
+    def get_xF(self):
+        return self.xF
+
+    def get_xD(self):
+        return self.xD
+
+    def get_murphree(self):
+        return self.murphree
+
     def set_reflux_ratio(self, R):
         try:
             R = float(R)
@@ -83,34 +114,22 @@ class TowerSpecs:
 
     def set_murphree_efficiency(self, murphree):
         murphree = self.check_valid_input(murphree)
-        if murphree == -1:
-            return
-        # Confirm valid range
-        if 0 < murphree <= 1:
+        if self.confirm_valid_bounding(murphree):
             self.murphree = murphree
 
     def set_distillate_fraction(self, xD):
         xD = self.check_valid_input(xD)
-        if xD == -1:
-            return
-        # Confirm valid bounding
-        if self.xF < xD:
+        if self.confirm_valid_bounding(xD, self.xF):
             self.xD = xD
 
     def set_feed_fraction(self, xF):
         xF = self.check_valid_input(xF)
-        if xF == -1:
-            return
-        # Confirm valid bounding
-        if self.xB < xF:
+        if self.confirm_valid_bounding(xF, self.xB):
             self.xF = xF
 
     def set_bottoms_fraction(self, xB):
         xB = self.check_valid_input(xB)
-        if xB == -1:
-            return
-        # Confirm valid bounding
-        if xB < self.xF:
+        if self.confirm_valid_bounding(xB):
             self.xB = xB
 
     @staticmethod

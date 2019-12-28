@@ -1,24 +1,13 @@
 import sys
+import nuitka
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon, QDoubleValidator, QFont
 from PyQt5.QtCore import QCoreApplication, Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-import BinarySystem as BS
-import TowerSpecifications as TS
-
-# Initial System Conditions
-light_chemical = "ethanol"
-heavy_chemical = "n-nonane"
-R = 2.5
-xB = 0.1
-xF = 0.4
-xD = 0.95
-murphree = 0.95
-# Objects for generating plots
-tower_specs = TS.TowerSpecs(R, xB, xF, xD, murphree)
-binary_system = BS.BinarySystem(light_chemical, heavy_chemical)
+import BinarySystem
+import TowerSpecifications
 
 
 class Window(QMainWindow):
@@ -46,19 +35,24 @@ class Window(QMainWindow):
     _SIDEBAR_HORIZONTAL_PADDING = 6
     _SIDEBAR_HEIGHT_PADDING = 2
 
-    _selected_chemicals = [light_chemical, heavy_chemical]
+    _selected_chemicals = []
+    _chemical_combo_boxes = []
     _display_required_steps = None
     _display_feed_step = None
 
-    def __init__(self):
+    def __init__(self, binary_system: BinarySystem, tower_specs: TowerSpecifications):
         super(Window, self).__init__()
         self.setGeometry(50, 50, self._WINDOW_MINIMUM_WIDTH, self._WINDOW_MINIMUM_HEIGHT)
         self.setMinimumSize(self._WINDOW_MINIMUM_WIDTH, self._WINDOW_MINIMUM_HEIGHT)
         self.setWindowTitle("Separations Preparation")
         self.setWindowIcon(QIcon('Elroy.png'))
         self.sidebar_x = self._SIDEBAR_BUTTON_WIDTH
+        
+        self.binary_system = binary_system
+        self.tower_specs = tower_specs
+        self._selected_chemicals = binary_system.get_current_chemicals()
 
-        self.plot_canvas = PlotCanvas(self)
+        self.plot_canvas = PlotCanvas(binary_system, tower_specs, self)
         self.plot_canvas.move(self.sidebar_x, 0)
 
         self.make_sidebar()
@@ -86,9 +80,9 @@ class Window(QMainWindow):
 
         self.make_tower_specification_box(7)
 
-        feed_steps = str(binary_system.get_feed_step())
+        feed_steps = str(self.binary_system.get_feed_step())
         self._display_feed_step = self.make_text_box("Feed stage: " + feed_steps, 12)
-        required_steps = str(binary_system.get_required_steps())
+        required_steps = str(self.binary_system.get_required_steps())
         self._display_required_steps = self.make_text_box("No. stages: " + required_steps, 13)
 
         self.update_stage_display()
@@ -143,6 +137,7 @@ class Window(QMainWindow):
         """
         for position, chemical in enumerate(self._selected_chemicals):
             chemical_combo_box = QComboBox(self)
+            self._chemical_combo_boxes.append(chemical_combo_box)
             self.set_generic_sidebar_geometry(chemical_combo_box, offset + position)
 
             self.populate_combo_box(chemical_combo_box)
@@ -153,14 +148,13 @@ class Window(QMainWindow):
             else:
                 chemical_combo_box.activated[str].connect(self.update_bottom_chemical_selected)
 
-    @staticmethod
-    def populate_combo_box(combo_box):
+    def populate_combo_box(self, combo_box):
         """Populates the given combo box with the chemical options available by the file
 
         Args:
             combo_box:  PyQT5 Combobox object being populated
         """
-        chemicals = binary_system.get_all_potential_chemicals()
+        chemicals = self.binary_system.get_all_potential_chemicals()
         for chemical in chemicals:
             combo_box.addItem(chemical)
 
@@ -204,7 +198,7 @@ class Window(QMainWindow):
 
     def process_valid_chemical_update(self):
         """When a chemical selected is valid, the binary system object is updated and the plot redrawn"""
-        binary_system.set_new_chemicals(self._selected_chemicals)
+        self.binary_system.set_new_chemicals(self._selected_chemicals)
         self.update_stage_display()
         self.plot_canvas.recreate_plot()
 
@@ -219,13 +213,13 @@ class Window(QMainWindow):
         Args:
             offset:     Number of buttons above it; determines how far down it displays
         """
-        # "Property Name": [Lowerbound - Upperbound - Max decimal places - Initial value]
+        # "Property Name": [Lower bound - Upper bound - Max decimal places - Initial value]
         config_options = {
-            "R":  [0.001, 50.00, 3, R],
-            "xB": [0.000, 0.998, 3, xB],
-            "xF": [0.001, 0.999, 3, xF],
-            "xD": [0.002, 1.000, 3, xD],
-            "murphree": [0.05, 1.0, 3, murphree]
+            "R":  [0.001, 50.00, 3, self.tower_specs.get_reflux_ratio()],
+            "xB": [0.000, 0.998, 3, self.tower_specs.get_xB()],
+            "xF": [0.001, 0.999, 3, self.tower_specs.get_xF()],
+            "xD": [0.002, 1.000, 3, self.tower_specs.get_xD()],
+            "murphree": [0.05, 1.0, 3, self.tower_specs.get_murphree()]
         }
 
         for count, spec_name in enumerate(config_options):
@@ -261,8 +255,7 @@ class Window(QMainWindow):
         validator.setNotation(QDoubleValidator.StandardNotation)
         return validator
 
-    @staticmethod
-    def update_tower_specifications(tower_property):
+    def update_tower_specifications(self, tower_property):
         """Provides the correct function to update, based on the property
 
         Args:
@@ -272,27 +265,27 @@ class Window(QMainWindow):
             function:   Corresponds to the function that updates tower_property in the TowerSpecifications class
         """
         if tower_property == "R":
-            return tower_specs.set_reflux_ratio
+            return self.tower_specs.set_reflux_ratio
         if tower_property == "xB":
-            return tower_specs.set_bottoms_fraction
+            return self.tower_specs.set_bottoms_fraction
         if tower_property == "xF":
-            return tower_specs.set_feed_fraction
+            return self.tower_specs.set_feed_fraction
         if tower_property == "xD":
-            return tower_specs.set_distillate_fraction
+            return self.tower_specs.set_distillate_fraction
         if tower_property == "murphree":
-            return tower_specs.set_murphree_efficiency
+            return self.tower_specs.set_murphree_efficiency
 
     def update_stage_display(self):
         """Refreshes the stage display with the current number of feed and required stages"""
         # Refreshes the number of steps required
-        binary_system.find_stage_counts(tower_specs)
+        self.binary_system.find_stage_counts(self.tower_specs)
 
         # Updates feed step display
-        feed_steps = str(binary_system.get_feed_step())
+        feed_steps = str(self.binary_system.get_feed_step())
         self._display_feed_step.setText("Feed stage:\t" + feed_steps)
 
         # Updates required step display
-        required_steps = str(binary_system.get_required_steps())
+        required_steps = str(self.binary_system.get_required_steps())
         self._display_required_steps.setText("No. stages:\t" + required_steps)
 
     def set_generic_sidebar_geometry(self, gui_object, offset):
@@ -359,13 +352,17 @@ class PlotCanvas(FigureCanvas):
         graph_type:             The current graph type being rendered
     """
 
-    def __init__(self, parent=None, width=5, height=4, graph_type="Txy", dpi=100):
+    def __init__(self, binary_system: BinarySystem, tower_specs: TowerSpecifications,
+                 parent=None, width=5, height=4, graph_type="Txy", dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
         super().__init__(fig)
         self.setParent(parent)
 
         FigureCanvas.setSizePolicy(self, QSizePolicy.Expanding, QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
+
+        self.binary_system = binary_system
+        self.tower_specs = tower_specs
 
         self.graph_type = None
         self.create_plot(graph_type)
@@ -386,21 +383,14 @@ class PlotCanvas(FigureCanvas):
         ax = self.figure.add_subplot(111)
 
         if new_type == "Txy":
-            binary_system.plot_Txy_diagram(ax)
+            self.binary_system.plot_Txy_diagram(ax)
         elif new_type == "VLE":
-            binary_system.plot_vapor_liquid_equilibrium_diagram(ax)
+            self.binary_system.plot_vapor_liquid_equilibrium_diagram(ax)
         elif new_type == "Distillation":
-            binary_system.plot_reflux_distillation_diagram(tower_specs, ax)
+            self.binary_system.plot_reflux_distillation_diagram(self.tower_specs, ax)
         self.graph_type = new_type
 
         self.draw()
 
 
-def activate_UI():
-    """Activates the UI"""
-    app = QApplication([])
-    Window()
-    sys.exit(app.exec_())
 
-
-activate_UI()
