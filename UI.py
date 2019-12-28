@@ -1,5 +1,3 @@
-import sys
-import nuitka
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon, QDoubleValidator, QFont
 from PyQt5.QtCore import QCoreApplication, Qt
