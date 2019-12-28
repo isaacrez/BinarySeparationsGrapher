@@ -8,6 +8,7 @@ from matplotlib.figure import Figure
 import BinarySystem as BS
 import TowerSpecifications as TS
 
+# Initial System Conditions
 light_chemical = "ethanol"
 heavy_chemical = "n-nonane"
 R = 2.5
@@ -15,24 +16,44 @@ xB = 0.1
 xF = 0.4
 xD = 0.95
 murphree = 0.95
-
-towSpec = TS.TowerSpecs(R, xB, xF, xD, murphree)
+# Objects for generating plots
+tower_specs = TS.TowerSpecs(R, xB, xF, xD, murphree)
 binary_system = BS.BinarySystem(light_chemical, heavy_chemical)
 
 
-# noinspection PyUnresolvedReferences
 class Window(QMainWindow):
+    """Generates sidebar elements and renders the overall Window display
+
+    Public-Intended Methods:
+        None
+
+    Attributes:
+        _WINDOW_MINIMUM_WIDTH:          Minimum width permitted for the window
+        _WINDOW_MINIMUM_HEIGHT:         Minimum height permitted for the window
+        _SIDEBAR_BUTTON_HEIGHT:         Sidebar button's height
+        _SIDEBAR_BUTTON_WIDTH:          Sidebar (and sidebar button's) width
+        _SIDEBAR_HORIZONTAL_PADDING:    Space between edge and sidebar buttons; SUBTRACTED from button width
+        _SIDEBAR_HEIGHT_PADDING:        Space between each button vertically; INDEPENDENT of button height
+        _selected_chemicals:            Stores the chemicals currently selected by the two ComboBoxes
+        _display_required_steps:        QLabel displaying the required steps to complete the distillation process
+        _display_feed_step:             QLabel displaying the optimal feed step for the distillation process
+    """
+
+    _WINDOW_MINIMUM_WIDTH = 640
+    _WINDOW_MINIMUM_HEIGHT = 400
     _SIDEBAR_BUTTON_HEIGHT = 26
     _SIDEBAR_BUTTON_WIDTH = 120
     _SIDEBAR_HORIZONTAL_PADDING = 6
     _SIDEBAR_HEIGHT_PADDING = 2
+
     _selected_chemicals = [light_chemical, heavy_chemical]
     _display_required_steps = None
     _display_feed_step = None
 
     def __init__(self):
         super(Window, self).__init__()
-        self.setGeometry(50, 50, 640, 400)
+        self.setGeometry(50, 50, self._WINDOW_MINIMUM_WIDTH, self._WINDOW_MINIMUM_HEIGHT)
+        self.setMinimumSize(self._WINDOW_MINIMUM_WIDTH, self._WINDOW_MINIMUM_HEIGHT)
         self.setWindowTitle("Separations Preparation")
         self.setWindowIcon(QIcon('Elroy.png'))
         self.sidebar_x = self._SIDEBAR_BUTTON_WIDTH
@@ -68,7 +89,7 @@ class Window(QMainWindow):
         feed_steps = str(binary_system.get_feed_step())
         self._display_feed_step = self.make_text_box("Feed stage: " + feed_steps, 12)
         required_steps = str(binary_system.get_required_steps())
-        self._display_required_steps = self.make_text_box("Required stages: " + required_steps, 13)
+        self._display_required_steps = self.make_text_box("No. stages: " + required_steps, 13)
 
         self.update_stage_display()
 
@@ -93,17 +114,26 @@ class Window(QMainWindow):
         btn.clicked.connect(lambda: self.plot_canvas.create_plot(desired_type))
         self.set_generic_sidebar_geometry(btn, offset)
 
-    def make_text_box(self, txt, offset, save_reference=False):
-        txt = QLabel(txt, self)
+    def make_text_box(self, txt, offset):
+        """Produces a text box for the sidebar
 
-        font = QFont("Times", 9)
-        txt.setFont(font)
+        Args:
+            txt:        Text to be displayed in "text_box"
+            offset:     Space down the sidebar "text_box" should be displayed
 
-        txt.setAlignment(Qt.AlignLeft)
-        txt.setAlignment(Qt.AlignBottom)
+        Returns:
+           text_box:    QLabel object containing "txt" and positioned based on "offset"
+        """
+        text_box = QLabel(txt, self)
 
-        self.set_generic_sidebar_geometry(txt, offset)
-        return txt
+        font = QFont("Times", 10)
+        text_box.setFont(font)
+
+        text_box.setAlignment(Qt.AlignLeft)
+        text_box.setAlignment(Qt.AlignBottom)
+
+        self.set_generic_sidebar_geometry(text_box, offset)
+        return text_box
 
     def make_chemical_combo_boxes(self, offset):
         """Creates a ComboBox to select one of the two chemicals used in the binary distillation system
@@ -242,47 +272,67 @@ class Window(QMainWindow):
             function:   Corresponds to the function that updates tower_property in the TowerSpecifications class
         """
         if tower_property == "R":
-            return towSpec.set_reflux_ratio
+            return tower_specs.set_reflux_ratio
         if tower_property == "xB":
-            return towSpec.set_bottoms_fraction
+            return tower_specs.set_bottoms_fraction
         if tower_property == "xF":
-            return towSpec.set_feed_fraction
+            return tower_specs.set_feed_fraction
         if tower_property == "xD":
-            return towSpec.set_distillate_fraction
+            return tower_specs.set_distillate_fraction
         if tower_property == "murphree":
-            return towSpec.set_murphree_efficiency
+            return tower_specs.set_murphree_efficiency
 
     def update_stage_display(self):
         """Refreshes the stage display with the current number of feed and required stages"""
         # Refreshes the number of steps required
-        binary_system.find_stage_counts(towSpec)
+        binary_system.find_stage_counts(tower_specs)
 
         # Updates feed step display
         feed_steps = str(binary_system.get_feed_step())
-        self._display_feed_step.setText("Feed stage: " + feed_steps)
+        self._display_feed_step.setText("Feed stage:\t" + feed_steps)
 
         # Updates required step display
         required_steps = str(binary_system.get_required_steps())
-        self._display_required_steps.setText("Required stages: " + required_steps)
+        self._display_required_steps.setText("No. stages:\t" + required_steps)
 
     def set_generic_sidebar_geometry(self, gui_object, offset):
+        """Configures the provided GUI element based on sidebar formatting
+
+        Args:
+            gui_object:     GUI object to be sized
+            offset:         How far vertically the object should be moved
+        """
         button_width = self._SIDEBAR_BUTTON_WIDTH - 2 * self._SIDEBAR_HORIZONTAL_PADDING
         gui_object.resize(button_width, self._SIDEBAR_BUTTON_HEIGHT)
         gui_object.move(self._SIDEBAR_HORIZONTAL_PADDING,
                         offset * (self._SIDEBAR_BUTTON_HEIGHT + self._SIDEBAR_HEIGHT_PADDING))
 
     def set_text_input_sidebar_geometry(self, text, gui_object, offset):
-        ratio = 1/5
+        """Sizes and positions the GUI object into the sidebar, with a label to its left
 
-        txt_width = self._SIDEBAR_BUTTON_WIDTH * ratio - self._SIDEBAR_HORIZONTAL_PADDING
+        Args:
+            text:       Text for the label ADJACENT to the object being rendered
+            gui_object: GUI object to be configured; should be a RadioButton or QLineEdit
+            offset:     How far vertically the object should be moved
+        """
+        ratio = 1/5     # Ratio of text-to-form
+
+        txt_width = int(self._SIDEBAR_BUTTON_WIDTH * ratio - self._SIDEBAR_HORIZONTAL_PADDING)
         self.make_sidebar_text_input_label(text, txt_width, offset)
 
-        btn_width = self._SIDEBAR_BUTTON_WIDTH * (1 - ratio) - self._SIDEBAR_HORIZONTAL_PADDING
+        btn_width = int(self._SIDEBAR_BUTTON_WIDTH * (1 - ratio) - self._SIDEBAR_HORIZONTAL_PADDING)
         gui_object.resize(btn_width, self._SIDEBAR_BUTTON_HEIGHT)
         gui_object.move(self._SIDEBAR_HORIZONTAL_PADDING + txt_width,
                         offset * (self._SIDEBAR_BUTTON_HEIGHT + self._SIDEBAR_HEIGHT_PADDING))
 
     def make_sidebar_text_input_label(self, text, width, offset):
+        """Generates a sidebar text label with the provided text, width, and offset
+
+        Args:
+            text:       The text content for the label
+            width:      How wide the element is
+            offset:     How far down the sidebar the element should be displayed
+        """
         txt = QLabel(text, self)
         txt.setAlignment(Qt.AlignVCenter)
         txt.resize(width, self._SIDEBAR_BUTTON_HEIGHT)
@@ -299,6 +349,15 @@ class Window(QMainWindow):
 
 
 class PlotCanvas(FigureCanvas):
+    """Used to render plots generated by the BinarySystem class
+
+    Public-Intended Methods:
+        recreate_plot():        Recreates the existing plot
+        create_plot(new_type):  Creates a new plot of type "new_type"
+
+    Attributes:
+        graph_type:             The current graph type being rendered
+    """
 
     def __init__(self, parent=None, width=5, height=4, graph_type="Txy", dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
@@ -312,9 +371,15 @@ class PlotCanvas(FigureCanvas):
         self.create_plot(graph_type)
 
     def recreate_plot(self):
+        """Recreates the existing plot; used for updating it when parameters change"""
         self.create_plot(self.graph_type)
 
     def create_plot(self, new_type):
+        """Used to create a new plot of form "new_type" using the BinarySystem class that is then rendered
+
+        Args:
+            new_type:   New graph desired from BinarySystem. Can be "Txy", "VLE", or "Distillation"
+        """
 
         self.figure.clf()
         self.figure.suptitle(new_type, fontweight="bold")
@@ -325,15 +390,16 @@ class PlotCanvas(FigureCanvas):
         elif new_type == "VLE":
             binary_system.plot_vapor_liquid_equilibrium_diagram(ax)
         elif new_type == "Distillation":
-            binary_system.plot_reflux_distillation_diagram(towSpec, ax)
+            binary_system.plot_reflux_distillation_diagram(tower_specs, ax)
         self.graph_type = new_type
 
         self.draw()
 
 
 def activate_UI():
+    """Activates the UI"""
     app = QApplication([])
-    GUI = Window()
+    Window()
     sys.exit(app.exec_())
 
 

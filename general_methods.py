@@ -1,5 +1,5 @@
 
-def bisectionMethod(x, y):
+def bisection_method(x, y):
     """Applies the bisection method / binary search to a set of values
 
     Args:
@@ -17,8 +17,8 @@ def bisectionMethod(x, y):
         raise ValueError("No valid root detected by binary search in provided bounds")
 
 
-def defaultIndefiniteIterationParameters():
-    """Cleanly returns commonly desired parameters for approximating values
+def default_indefinite_iteration_parameters():
+    """Cleanly returns commonly desired parameters for approximating values using 'while' loops
 
     Returns:
         tol:        The tolerated error in verifying a calculation as "correct"
@@ -31,7 +31,7 @@ def defaultIndefiniteIterationParameters():
     return tol, err, counter
 
 
-def addMidpoint(y):
+def add_midpoint(y):
     """Adds a midpoint value to a list
 
     Args:

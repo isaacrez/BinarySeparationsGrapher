@@ -27,6 +27,7 @@ class BinarySystem:
     """
     _PURE_LIGHT_CHEMICAL = 1
     _PURE_HEAVY_CHEMICAL = 0
+    _MAX_PERMITTED_STEPS = 51
     steps_required = 0
     feed_step = 0
 
@@ -110,7 +111,7 @@ class BinarySystem:
             chemical: Chemical whose boiling point is desired
         """
         A, B, C = self.antoine_coefficients[chemical]
-        tol, err, counter = gm.defaultIndefiniteIterationParameters()
+        tol, err, counter = gm.default_indefinite_iteration_parameters()
         T = 300
 
         while tol < err and counter < 30:
@@ -159,8 +160,8 @@ class BinarySystem:
             T:          The T-value satisfying the relationship x(T) = xDesired
         """
         T = self.temperature_bounds
-        gm.addMidpoint(T)
-        tol, err, counter = gm.defaultIndefiniteIterationParameters()
+        gm.add_midpoint(T)
+        tol, err, counter = gm.default_indefinite_iteration_parameters()
 
         while (tol < err) & (counter < 30):
             T, x = self.reduce_temperature_range(T, xDesired)
@@ -185,7 +186,7 @@ class BinarySystem:
         x = []
         for T_i in T:
             x.append(self.solve_binary_Raoult_Relation(T_i) - xDesired)
-        T = gm.bisectionMethod(T, x)
+        T = gm.bisection_method(T, x)
         return T, x
 
     def get_Psat(self, chemical, T):
@@ -238,7 +239,7 @@ class BinarySystem:
         lightPsat = self.get_Psat(self.light_chemical, T)
         heavyPsat = self.get_Psat(self.heavy_chemical, T)
 
-        tol, err, counter = gm.defaultIndefiniteIterationParameters()
+        tol, err, counter = gm.default_indefinite_iteration_parameters()
         x = 0.5
         f_p = lightPsat - heavyPsat
 
@@ -384,7 +385,7 @@ class BinarySystem:
         currY = xD
         steps = 0
 
-        while (xB < currX) and (steps < 50):
+        while (xB < currX) and (steps < self._MAX_PERMITTED_STEPS):
             steps += 1
             xEq = np.interp(currY, self.y, self.x)
 
@@ -412,7 +413,10 @@ class BinarySystem:
         if plot_element is not None:
             plot_element.plot([0], [0], '-g', label='McCabe Thiele')
 
-        self.steps_required = steps
+        if steps == self._MAX_PERMITTED_STEPS:
+            self.steps_required = "N/A"
+        else:
+            self.steps_required = steps
 
     def update_feed_step(self, state, steps):
         """Determines if updating the feed step is valid, and if applicable, does so
