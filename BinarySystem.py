@@ -108,24 +108,14 @@ class BinarySystem:
         return [lower_bound, upper_bound]
 
     def get_boiling_point(self, chemical):
-        """Approximates the boiling point of chemical using Antoine's equation and Newton's Method
+        """Determines the boiling point of chemical using Antoine's equation:
                 ln(Psat) = A - B / (T + C), where Psat = 760 mmHg (1 atm)
 
         Args:
             chemical: Chemical whose boiling point is desired
         """
         A, B, C = self.antoine_coefficients[chemical]
-        tol, err, counter = gm.default_indefinite_iteration_parameters()
-        T = 300
-
-        while tol < err and counter < 30:
-            f = A - B / (T + C) - math.log(760)
-            f_prime = B * (T + C) ** -2
-            T_new = T - f/f_prime
-
-            err = abs(T - T_new)
-            T = T_new
-
+        T = B / (A - math.log(760)) - C
         return T
 
     def verify_correct_chemical_labels(self):
