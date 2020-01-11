@@ -349,8 +349,6 @@ class PlotCanvas(FigureCanvas):
     Attributes:
         graph_type:             The current graph type being rendered
     """
-    #TODO   Eliminate crashes caused by redrawing
-    #       They occur due to the object being deleted (Unsure which object or how/why it is deleted)
 
     def __init__(self, binary_system: BinarySystem, tower_specs: TowerSpecifications,
                  parent=None, width=5, height=4, graph_type="Txy", dpi=100):
@@ -390,7 +388,15 @@ class PlotCanvas(FigureCanvas):
             self.binary_system.plot_reflux_distillation_diagram(self.tower_specs, ax)
         self.graph_type = new_type
 
-        self.draw()
-
-
+        try:
+            self.draw()
+        except RuntimeError as inst:
+            # Canvas object was deleted
+            # Cannot determine how to stop this - I think it's automatically cleaned up by the parent based on some
+            # digging.  I tried to force it to redraw; but the UI disappears and it infinitely loops.
+            print("RuntimeError:", inst.args[0])
+        except KeyError as inst:
+            # Occurred once, when boiling point difference was within 1 degree (L-lactide and n-hexadecane)
+            # Was an error using figure.clf() where the axes were missing
+            print("KeyError:", inst.args)
 
