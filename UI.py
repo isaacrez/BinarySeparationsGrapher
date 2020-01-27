@@ -233,8 +233,11 @@ class Window(QMainWindow):
                 self.set_text_input_sidebar_geometry("\u03B7", box, offset + count)
 
             box.textChanged.connect(self.update_tower_specifications(spec_name))
-            box.editingFinished.connect(self.update_stage_display)
-            box.editingFinished.connect(self.plot_canvas.recreate_plot)
+            box.editingFinished.connect(self.chemical_update_completed)
+
+    def chemical_update_completed(self):
+        self.update_stage_display()
+        self.plot_canvas.recreate_plot()
 
     @staticmethod
     def make_numeric_validator(properties):
