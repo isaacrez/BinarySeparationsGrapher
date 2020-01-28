@@ -353,7 +353,8 @@ class BinarySystem:
         if murphree != 1:
             yEff = self.get_effective_vapor_liquid_equilibrium_data(towerSpecs)
             self.plot_McCabe_Thiele_steps(towerSpecs, None, yEff)
-        self.plot_McCabe_Thiele_steps(towerSpecs)
+        else:
+            self.plot_McCabe_Thiele_steps(towerSpecs)
 
     def plot_McCabe_Thiele_steps(self, towerSpecs, plot_element=None, effY=None):
         """Plots the McCabe Thiele steps, which represent the number of discrete stages required
